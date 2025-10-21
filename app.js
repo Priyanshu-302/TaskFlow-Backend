@@ -3,7 +3,6 @@ const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
-// 🟢 FIX REQUIREMENT: Add Mongoose for DB Connection
 const mongoose = require("mongoose");
 const userModel = require("./models/user");
 const taskModel = require("./models/task");
@@ -16,7 +15,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "1d";
 
 // ===================================
-// DATABASE CONNECTION SETUP (New Block)
+// DATABASE CONNECTION SETUP
 // ===================================
 const ATLAS_URI = process.env.MONGO_URI;
 
@@ -30,7 +29,6 @@ mongoose
   .then(() => console.log("MongoDB Atlas connected successfully!"))
   .catch((err) => {
     console.error("MongoDB Atlas connection failed:", err.message);
-    // Note: We allow server start, but logs will show DB errors if credentials fail
   });
 
 // ===================================
@@ -40,25 +38,24 @@ mongoose
 app.use(express.json());
 app.use(cookieParser());
 
-// Simple CORS configuration
+// 🚀 CRITICAL FIX: Robust Dynamic CORS Configuration
 app.use((req, res, next) => {
+  // Define the required origin without a trailing slash
   const allowedOrigin = "https://task-flow-one-ebon.vercel.app";
   const origin = req.headers.origin;
 
-  // 🟢 Dynamic CORS Fix (from previous suggestion) - Ensures the Origin is echoed back
-  if (origin === allowedOrigin) {
+  // Check if the origin matches, handling potential trailing slash from the request side
+  if (origin && (origin === allowedOrigin || origin === `${allowedOrigin}/`)) {
+    // Echo the EXACT origin back to the browser
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
-
-  // Fallback if the strict check above somehow fails, but keep it strict for credentials
-  // res.setHeader("Access-Control-Allow-Origin", "https://task-flow-one-ebon.vercel.app");
 
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
   );
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", true);
+  res.setHeader("Access-Control-Allow-Credentials", true); // CRITICAL for cookies
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -157,19 +154,16 @@ app.post("/api/login", async (req, res) => {
 
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      JWT_SECRET,
-      // {
-      //   expiresIn: JWT_EXPIRES_IN,
-      // }
+      JWT_SECRET
+      // Note: ExpiresIn removed for debugging stability
     );
 
     res.cookie("jwt", token, {
       httpOnly: true,
-      secure: true, // Must be true because Vercel/Render is HTTPS
+      secure: true, // Must be true when Vercel/Render is HTTPS
       maxAge: 1000 * 60 * 60 * 24 * 1, // 1 day
-      sameSite: "None",
-      // 🟢 CRITICAL FIX: Ensure the cookie is valid for all paths
-      path: "/",
+      sameSite: "None", // CRITICAL for cross-domain
+      path: "/", // CRITICAL for full domain access
     });
 
     res.status(200).json({ message: "Login successful.", userId: user._id });
@@ -181,11 +175,12 @@ app.post("/api/login", async (req, res) => {
 
 // Route: POST /api/logout
 app.post("/api/logout", (req, res) => {
+  // 🚀 CRITICAL FIX: Ensure clearCookie uses matching secure/sameSite/path attributes
   res.clearCookie("jwt", {
     httpOnly: true,
     secure: true,
     sameSite: "None",
-    path: "/", // Ensure this is set on clear as well
+    path: "/",
   });
   res.status(200).json({ message: "Logged out successfully." });
 });
@@ -283,8 +278,6 @@ app.delete("/api/tasks/:id", async (req, res) => {
 // Route: GET /api/profile (Read Profile Data)
 app.get("/api/profile", authenticateToken, async (req, res) => {
   try {
-    // Find user by the ID stored in the JWT payload
-    // NOTE: If mongoose import failed, this line will crash the server!
     const user = await userModel
       .findById(req.user.userId)
       .select("email username createdAt");
@@ -293,7 +286,6 @@ app.get("/api/profile", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Respond with only safe, public profile data
     res.status(200).json(user);
   } catch (error) {
     console.error("Fetch profile error:", error);
@@ -309,14 +301,11 @@ app.patch("/api/profile", authenticateToken, async (req, res) => {
     const user = await userModel.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    // Update fields if provided
     if (username) {
-      // Store only the first word of the updated username
       user.username = username.trim().split(" ")[0];
     }
 
     if (email) {
-      // Check if the new email already exists (excluding the current user's email)
       const existingUser = await userModel.findOne({ email });
       if (existingUser && existingUser._id.toString() !== user._id.toString()) {
         return res
@@ -327,7 +316,6 @@ app.patch("/api/profile", authenticateToken, async (req, res) => {
     }
 
     await user.save();
-    // Respond with updated, safe data
     res.status(200).json({
       username: user.username,
       email: user.email,
@@ -386,7 +374,6 @@ app.post("/api/profile/password", authenticateToken, async (req, res) => {
 // Route: GET /api/stats (Fetch Task Aggregation for Profile Page)
 app.get("/api/stats", authenticateToken, async (req, res) => {
   try {
-    // NOTE: Mongoose must be imported for this line to work.
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     const stats = await taskModel.aggregate([
@@ -413,7 +400,6 @@ app.get("/api/stats", authenticateToken, async (req, res) => {
       },
     ]);
 
-    // If no tasks exist, stats will be an empty array. Provide zero totals.
     const result = stats[0] || {
       totalTasks: 0,
       highPriority: 0,
