@@ -158,9 +158,9 @@ app.post("/api/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       JWT_SECRET,
-      {
-        expiresIn: JWT_EXPIRES_IN,
-      }
+      // {
+      //   expiresIn: JWT_EXPIRES_IN,
+      // }
     );
 
     res.cookie("jwt", token, {
