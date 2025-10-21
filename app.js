@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   // CRITICAL: Must match your frontend development port
   res.setHeader(
     "Access-Control-Allow-Origin",
-    "https://task-flow-one-ebon.vercel.app/"
+    "https://task-flow-one-ebon.vercel.app"
   );
   res.setHeader(
     "Access-Control-Allow-Methods",
