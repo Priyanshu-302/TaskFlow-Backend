@@ -62,6 +62,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Route: GET /api/ping or /api/health
+app.get("/api/health", (req, res) => {
+  // This simple response wakes the server without taxing the database.
+  res.status(200).json({ status: "ok", service: "TaskFlow API" });
+});
+
 // ===================================
 // AUTHENTICATION MIDDLEWARE
 // ===================================
@@ -270,12 +276,6 @@ app.delete("/api/tasks/:id", async (req, res) => {
     console.error("Delete task error:", error);
     res.status(500).json({ message: "Failed to delete task." });
   }
-});
-
-// Route: GET /api/ping or /api/health
-app.get("/api/health", (req, res) => {
-  // This simple response wakes the server without taxing the database.
-  res.status(200).json({ status: "ok", service: "TaskFlow API" });
 });
 
 // Route: GET /api/profile (Read Profile Data)
