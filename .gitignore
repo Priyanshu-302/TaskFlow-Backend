@@ -1,0 +1,15 @@
+Node dependencies
+
+/node_modules
+
+Environment variables (CRITICAL FOR SECURITY)
+
+.env
+.env.*
+
+Logs and system files
+
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+*.log
