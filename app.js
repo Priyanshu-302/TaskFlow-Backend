@@ -62,12 +62,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route: GET /api/ping or /api/health
-app.get("/api/health", (req, res) => {
-  // This simple response wakes the server without taxing the database.
-  res.status(200).json({ status: "ok", service: "TaskFlow API" });
-});
-
 // ===================================
 // AUTHENTICATION MIDDLEWARE
 // ===================================
