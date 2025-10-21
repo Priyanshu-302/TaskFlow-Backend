@@ -182,11 +182,10 @@ app.post("/api/login", async (req, res) => {
 // Route: POST /api/logout
 app.post("/api/logout", (req, res) => {
   res.clearCookie("jwt", {
-    // Must match the settings used when setting the cookie
     httpOnly: true,
     secure: true,
     sameSite: "None",
-    path: "/",
+    path: "/", // Ensure this is set on clear as well
   });
   res.status(200).json({ message: "Logged out successfully." });
 });
