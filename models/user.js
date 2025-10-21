@@ -3,8 +3,6 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-mongoose.connect(process.env.MONGO_URI);
-
 const userSchema = mongoose.Schema({
   email: {
     type: String,
