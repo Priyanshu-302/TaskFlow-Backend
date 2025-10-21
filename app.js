@@ -70,22 +70,37 @@ app.use((req, res, next) => {
 /**
  * Middleware to verify the JWT token stored in an HTTP-only cookie.
  */
+// --- In your app.js file, replace the current authenticateToken function ---
+
 const authenticateToken = (req, res, next) => {
   const token = req.cookies.jwt;
+  console.log("--- AUTH CHECK START ---");
 
   if (!token) {
+    // 🔴 Scenario 1: The cookie is blocked by the browser/CORS/Domain.
+    console.log(
+      "AUTH FAIL: No token found (Cookie is blocked or missing). Sending 401."
+    );
     return res
       .status(401)
       .json({ message: "Authentication required. No token found." });
   }
 
   try {
+    console.log("AUTH DEBUG: Token found. Attempting verification...");
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("AUTH SUCCESS: Token verified for user:", decoded.userId);
     req.user = decoded;
     next();
   } catch (err) {
+    // 🔴 Scenario 2: The token is expired, secret is wrong, or token is invalid.
+    console.error(
+      "AUTH FAIL: Token verification failed. Sending 403. ERROR:",
+      err.message
+    );
     return res.status(403).json({ message: "Invalid or expired token." });
   }
+  console.log("--- AUTH CHECK END ---");
 };
 
 // ===================================
