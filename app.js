@@ -23,7 +23,10 @@ app.use(cookieParser());
 // Simple CORS configuration
 app.use((req, res, next) => {
   // CRITICAL: Must match your frontend development port
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5500");
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "https://task-flow-one-ebon.vercel.app/"
+  );
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
@@ -250,9 +253,9 @@ app.delete("/api/tasks/:id", async (req, res) => {
 app.get("/api/profile", authenticateToken, async (req, res) => {
   try {
     // Find user by the ID stored in the JWT payload
-    const user = await userModel.findById(req.user.userId).select(
-      "email username createdAt"
-    );
+    const user = await userModel
+      .findById(req.user.userId)
+      .select("email username createdAt");
 
     if (!user) {
       return res.status(404).json({ message: "User not found." });
@@ -293,13 +296,11 @@ app.patch("/api/profile", authenticateToken, async (req, res) => {
 
     await user.save();
     // Respond with updated, safe data
-    res
-      .status(200)
-      .json({
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt,
-      });
+    res.status(200).json({
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt,
+    });
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ message: "Failed to update profile data." });
@@ -311,12 +312,10 @@ app.post("/api/profile/password", authenticateToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword || newPassword.length < 8) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "Current password and a new password (min 8 characters) are required.",
-      });
+    return res.status(400).json({
+      message:
+        "Current password and a new password (min 8 characters) are required.",
+    });
   }
 
   try {
