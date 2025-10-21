@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+// Note: cookieParser is no longer needed for auth, but kept as it was in the original code
 const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const userModel = require("./models/user");
@@ -38,15 +39,12 @@ mongoose
 app.use(express.json());
 app.use(cookieParser());
 
-// 🚀 CRITICAL FIX: Robust Dynamic CORS Configuration
+// 🟢 FIX: Robust Dynamic CORS for Bearer Tokens
 app.use((req, res, next) => {
-  // Define the required origin without a trailing slash
   const allowedOrigin = "https://task-flow-one-ebon.vercel.app";
   const origin = req.headers.origin;
 
-  // Check if the origin matches, handling potential trailing slash from the request side
   if (origin && (origin === allowedOrigin || origin === `${allowedOrigin}/`)) {
-    // Echo the EXACT origin back to the browser
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
 
@@ -54,8 +52,9 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
   );
+  // CRITICAL: Must allow Authorization header for token sending
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", true); // CRITICAL for cookies
+  res.setHeader("Access-Control-Allow-Credentials", true);
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -68,39 +67,33 @@ app.use((req, res, next) => {
 // ===================================
 
 /**
- * Middleware to verify the JWT token stored in an HTTP-only cookie.
+ * 🟢 FIX: Middleware to verify the JWT token stored in the Authorization header.
  */
-// --- In your app.js file, replace the current authenticateToken function ---
-
 const authenticateToken = (req, res, next) => {
-  const token = req.cookies.jwt;
-  console.log("--- AUTH CHECK START ---");
+  const authHeader = req.headers["authorization"];
+
+  // Check for "Bearer <token>" format and extract the token
+  const token =
+    authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : null;
 
   if (!token) {
-    // 🔴 Scenario 1: The cookie is blocked by the browser/CORS/Domain.
-    console.log(
-      "AUTH FAIL: No token found (Cookie is blocked or missing). Sending 401."
-    );
     return res
       .status(401)
-      .json({ message: "Authentication required. No token found." });
+      .json({
+        message:
+          "Authentication required. No token found in Authorization header.",
+      });
   }
 
   try {
-    console.log("AUTH DEBUG: Token found. Attempting verification...");
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("AUTH SUCCESS: Token verified for user:", decoded.userId);
     req.user = decoded;
     next();
   } catch (err) {
-    // 🔴 Scenario 2: The token is expired, secret is wrong, or token is invalid.
-    console.error(
-      "AUTH FAIL: Token verification failed. Sending 403. ERROR:",
-      err.message
-    );
     return res.status(403).json({ message: "Invalid or expired token." });
   }
-  console.log("--- AUTH CHECK END ---");
 };
 
 // ===================================
@@ -169,19 +162,16 @@ app.post("/api/login", async (req, res) => {
 
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      JWT_SECRET
-      // Note: ExpiresIn removed for debugging stability
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      secure: true, // Must be true when Vercel/Render is HTTPS
-      maxAge: 1000 * 60 * 60 * 24 * 1, // 1 day
-      sameSite: "None", // CRITICAL for cross-domain
-      path: "/", // CRITICAL for full domain access
+    // 🟢 FIX: Return the token in the body instead of setting a cookie
+    res.status(200).json({
+      message: "Login successful.",
+      userId: user._id,
+      token: token, // 🚀 Token sent directly to frontend
     });
-
-    res.status(200).json({ message: "Login successful.", userId: user._id });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Server error during login." });
@@ -190,13 +180,7 @@ app.post("/api/login", async (req, res) => {
 
 // Route: POST /api/logout
 app.post("/api/logout", (req, res) => {
-  // 🚀 CRITICAL FIX: Ensure clearCookie uses matching secure/sameSite/path attributes
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-  });
+  // 🟢 FIX: No cookie to clear, just success response
   res.status(200).json({ message: "Logged out successfully." });
 });
 
@@ -357,7 +341,6 @@ app.post("/api/profile/password", authenticateToken, async (req, res) => {
     const user = await userModel.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    // 1. Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res
@@ -365,18 +348,10 @@ app.post("/api/profile/password", authenticateToken, async (req, res) => {
         .json({ message: "The current password you entered is incorrect." });
     }
 
-    // 2. Hash and save the new password
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    // 3. Clear the cookie and force re-login for security
-    res.clearCookie("jwt", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      path: "/",
-    });
-
+    // 🟢 FIX: Clear cookie logic removed, no cookie to clear
     res
       .status(200)
       .json({ message: "Password changed successfully. Please log in again." });
