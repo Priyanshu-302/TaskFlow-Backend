@@ -141,7 +141,7 @@ app.post("/api/login", async (req, res) => {
 
     res.cookie("jwt", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       maxAge: 1000 * 60 * 60 * 24 * 1, // 1 day
       sameSite: "None",
     });
