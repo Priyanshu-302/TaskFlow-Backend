@@ -6,27 +6,21 @@ const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const userModel = require("./models/user");
 const taskModel = require("./models/task");
-const nodemailer = require("nodemailer");
+// 🛑 REMOVED: const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail"); // 🟢 FIX 1: Use SendGrid library
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+// 🟢 FIX 2: Initialize SendGrid API Key (must be set in Render environment)
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+// 🛑 REMOVED: const transporter = nodemailer.createTransport({ ... });
+
+// 🟢 FIX 3: Updated email utility function using SendGrid's API format
 const sendWelcomeEmail = async (email, username) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
+  const msg = {
     to: email,
+    from: process.env.TASKFLOW_EMAIL_FROM, // CRITICAL: Your verified SendGrid sender email
     subject: "Welcome to TaskFlow! Your task management journey starts now.",
     html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd;">
                 <h2 style="color: #00FFC2;">Welcome to TaskFlow, ${username}!</h2>
@@ -44,11 +38,12 @@ const sendWelcomeEmail = async (email, username) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`Welcome email successfully sent to ${email}`);
+    await sgMail.send(msg); // 🟢 Sends via HTTPS API (Port 443)
+    console.log(`Welcome email successfully sent via SendGrid to ${email}`);
   } catch (error) {
+    // Log the actual SendGrid error details
     console.error(
-      `Failed to send welcome email to ${email}. ERROR:`,
+      `SendGrid email failed to send to ${email}. ERROR:`,
       error.message
     );
   }
@@ -95,8 +90,7 @@ app.use((req, res, next) => {
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
-  );
-  // CRITICAL: Must allow Authorization header for token sending
+  ); // CRITICAL: Must allow Authorization header for token sending
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", true);
 
@@ -114,9 +108,8 @@ app.use((req, res, next) => {
  * 🟢 FIX: Middleware to verify the JWT token stored in the Authorization header.
  */
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
+  const authHeader = req.headers["authorization"]; // Check for "Bearer <token>" format and extract the token
 
-  // Check for "Bearer <token>" format and extract the token
   const token =
     authHeader && authHeader.startsWith("Bearer ")
       ? authHeader.split(" ")[1]
@@ -170,7 +163,7 @@ app.post("/api/signup", async (req, res) => {
       password: hashedPassword,
       username: firstName,
     });
-    await user.save();
+    await user.save(); // 🟢 Email function call remains the same, but now uses SendGrid API
 
     await sendWelcomeEmail(email, firstName);
 
@@ -208,9 +201,8 @@ app.post("/api/login", async (req, res) => {
       { userId: user._id, email: user.email },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
-    );
+    ); // 🟢 FIX: Return the token in the body instead of setting a cookie
 
-    // 🟢 FIX: Return the token in the body instead of setting a cookie
     res.status(200).json({
       message: "Login successful.",
       userId: user._id,
@@ -393,9 +385,8 @@ app.post("/api/profile/password", authenticateToken, async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    await user.save(); // 🟢 FIX: Clear cookie logic removed, no cookie to clear
 
-    // 🟢 FIX: Clear cookie logic removed, no cookie to clear
     res
       .status(200)
       .json({ message: "Password changed successfully. Please log in again." });
