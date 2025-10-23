@@ -52,6 +52,7 @@ const sendWelcomeEmail = async (email, username) => {
 };
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "1d";
 
