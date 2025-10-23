@@ -7,20 +7,17 @@ const mongoose = require("mongoose");
 const userModel = require("./models/user");
 const taskModel = require("./models/task");
 // 🛑 REMOVED: const nodemailer = require("nodemailer");
-const sgMail = require("@sendgrid/mail"); // 🟢 FIX 1: Use SendGrid library
+const sgMail = require("@sendgrid/mail"); // 🟢 Use SendGrid library
 
 dotenv.config();
 
-// 🟢 FIX 2: Initialize SendGrid API Key (must be set in Render environment)
+// 🟢 FIX 1: Initialize SendGrid API Key
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-// 🛑 REMOVED: const transporter = nodemailer.createTransport({ ... });
-
-// 🟢 FIX 3: Updated email utility function using SendGrid's API format
 const sendWelcomeEmail = async (email, username) => {
   const msg = {
     to: email,
-    from: process.env.TASKFLOW_EMAIL_FROM, // CRITICAL: Your verified SendGrid sender email
+    from: process.env.TASKFLOW_EMAIL_FROM, // Your verified SendGrid sender email
     subject: "Welcome to TaskFlow! Your task management journey starts now.",
     html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd;">
                 <h2 style="color: #00FFC2;">Welcome to TaskFlow, ${username}!</h2>
@@ -38,14 +35,16 @@ const sendWelcomeEmail = async (email, username) => {
   };
 
   try {
-    await sgMail.send(msg); // 🟢 Sends via HTTPS API (Port 443)
+    await sgMail.send(msg); // 🟢 Sends via HTTPS API
     console.log(`Welcome email successfully sent via SendGrid to ${email}`);
   } catch (error) {
-    // Log the actual SendGrid error details
     console.error(
       `SendGrid email failed to send to ${email}. ERROR:`,
       error.message
     );
+    if (error.response && error.response.body) {
+      console.error("SendGrid Full Error Body:", error.response.body);
+    }
   }
 };
 
@@ -78,7 +77,7 @@ mongoose
 app.use(express.json());
 app.use(cookieParser());
 
-// 🟢 FIX: Robust Dynamic CORS for Bearer Tokens
+// 🟢 CORS for Bearer Tokens
 app.use((req, res, next) => {
   const allowedOrigin = "https://task-flow-one-ebon.vercel.app";
   const origin = req.headers.origin;
@@ -90,7 +89,7 @@ app.use((req, res, next) => {
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
-  ); // CRITICAL: Must allow Authorization header for token sending
+  );
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", true);
 
@@ -105,10 +104,10 @@ app.use((req, res, next) => {
 // ===================================
 
 /**
- * 🟢 FIX: Middleware to verify the JWT token stored in the Authorization header.
+ * Middleware to verify the JWT token stored in the Authorization header.
  */
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"]; // Check for "Bearer <token>" format and extract the token
+  const authHeader = req.headers["authorization"];
 
   const token =
     authHeader && authHeader.startsWith("Bearer ")
@@ -201,12 +200,12 @@ app.post("/api/login", async (req, res) => {
       { userId: user._id, email: user.email },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
-    ); // 🟢 FIX: Return the token in the body instead of setting a cookie
+    ); // Return the token in the body
 
     res.status(200).json({
       message: "Login successful.",
       userId: user._id,
-      token: token, // 🚀 Token sent directly to frontend
+      token: token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -216,7 +215,6 @@ app.post("/api/login", async (req, res) => {
 
 // Route: POST /api/logout
 app.post("/api/logout", (req, res) => {
-  // 🟢 FIX: No cookie to clear, just success response
   res.status(200).json({ message: "Logged out successfully." });
 });
 
