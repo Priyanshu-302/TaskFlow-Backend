@@ -47,27 +47,12 @@ const sendWelcomeEmail = async (email, username) => {
 };
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "1d";
 
 // ===================================
 // DATABASE CONNECTION SETUP
-// ===================================
-const ATLAS_URI = process.env.MONGO_URI;
-
-if (!ATLAS_URI) {
-  console.error("FATAL ERROR: MONGO_URI is not defined.");
-  process.exit(1);
-}
-
-mongoose
-  .connect(ATLAS_URI)
-  .then(() => console.log("MongoDB Atlas connected successfully!"))
-  .catch((err) => {
-    console.error("MongoDB Atlas connection failed:", err.message);
-  });
-
+// ==================================
 // ===================================
 // MIDDLEWARE SETUP
 // ===================================
@@ -443,11 +428,34 @@ app.get("/api/stats", authenticateToken, async (req, res) => {
 // START SERVER
 // ===================================
 
-app.listen(PORT, () => {
-  console.log(`Express server running on port ${PORT}.`);
-  console.log(`Authentication Endpoints: /api/signup, /api/login, /api/logout`);
-  console.log(`Task Endpoints (Protected): /api/tasks`);
-  console.log(
-    `Profile Endpoints (Protected): /api/profile, /api/profile/password, /api/stats`
-  );
-});
+const ATLAS_URI = process.env.MONGO_URI;
+const PORT = process.env.PORT || 3000;
+
+if (!ATLAS_URI) {
+  console.error("FATAL ERROR: MONGO_URI is not defined.");
+  process.exit(1);
+}
+
+// 🟢 CRITICAL FIX: Only execute app.listen AFTER Mongoose connects
+mongoose
+  .connect(ATLAS_URI)
+  .then(() => {
+    console.log("MongoDB Atlas connected successfully!");
+
+    // Start the Express server
+    app.listen(PORT, () => {
+      console.log(`Express server running on port ${PORT}.`);
+      console.log(
+        `Authentication Endpoints: /api/signup, /api/login, /api/logout`
+      );
+      // ... (other console logs) ...
+    });
+  }) // End of .then()
+  .catch((err) => {
+    console.error(
+      "MongoDB Atlas connection failed. Rendering deployment failed:",
+      err.message
+    );
+    // If the DB connection fails, the process must exit cleanly for Render to detect the failure.
+    process.exit(1);
+  });
