@@ -2,13 +2,49 @@ const express = require("express");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-// Note: cookieParser is no longer needed for auth, but kept as it was in the original code
 const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const userModel = require("./models/user");
 const taskModel = require("./models/task");
+const nodemailer = require("nodemailer");
 
 dotenv.config();
+
+const transporter = nodemailer.createTransport({
+  host: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+const sendWelcomeEmail = async (email, username) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Welcome to TaskFlow! Your task management journey starts now.",
+    html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd;">
+                <h2 style="color: #00FFC2;">Welcome to TaskFlow, ${username}!</h2>
+                <p>Thank you for signing up. Your account is now active.</p>
+                <p>Start organizing your tasks right away by logging into your dashboard:</p>
+                <a href="https://task-flow-one-ebon.vercel.app/dashboard.html" 
+                   style="background-color: #B800FF; color: white; padding: 10px 15px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Go to Your Dashboard
+                </a>
+                <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    If you did not sign up for this service, please ignore this email.
+                </p>
+            </div>`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Welcome email successfully sent to ${email}`);
+  } catch (error) {
+    console.log(`Welcome email successfully sent to ${email}`);
+  }
+};
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -127,6 +163,8 @@ app.post("/api/signup", async (req, res) => {
       username: firstName,
     });
     await user.save();
+
+    await sendWelcomeEmail(email, firstName);
 
     res
       .status(201)
