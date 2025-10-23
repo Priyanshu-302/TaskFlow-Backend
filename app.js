@@ -11,7 +11,9 @@ const nodemailer = require("nodemailer");
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -42,7 +44,10 @@ const sendWelcomeEmail = async (email, username) => {
     await transporter.sendMail(mailOptions);
     console.log(`Welcome email successfully sent to ${email}`);
   } catch (error) {
-    console.log(`Welcome email successfully sent to ${email}`);
+    console.error(
+      `Failed to send welcome email to ${email}. ERROR:`,
+      error.message
+    );
   }
 };
 
@@ -52,7 +57,21 @@ const JWT_EXPIRES_IN = "1d";
 
 // ===================================
 // DATABASE CONNECTION SETUP
-// ==================================
+// ===================================
+const ATLAS_URI = process.env.MONGO_URI;
+
+if (!ATLAS_URI) {
+  console.error("FATAL ERROR: MONGO_URI is not defined.");
+  process.exit(1);
+}
+
+mongoose
+  .connect(ATLAS_URI)
+  .then(() => console.log("MongoDB Atlas connected successfully!"))
+  .catch((err) => {
+    console.error("MongoDB Atlas connection failed:", err.message);
+  });
+
 // ===================================
 // MIDDLEWARE SETUP
 // ===================================
@@ -428,34 +447,11 @@ app.get("/api/stats", authenticateToken, async (req, res) => {
 // START SERVER
 // ===================================
 
-const ATLAS_URI = process.env.MONGO_URI;
-const PORT = process.env.PORT || 3000;
-
-if (!ATLAS_URI) {
-  console.error("FATAL ERROR: MONGO_URI is not defined.");
-  process.exit(1);
-}
-
-// 🟢 CRITICAL FIX: Only execute app.listen AFTER Mongoose connects
-mongoose
-  .connect(ATLAS_URI)
-  .then(() => {
-    console.log("MongoDB Atlas connected successfully!");
-
-    // Start the Express server
-    app.listen(PORT, () => {
-      console.log(`Express server running on port ${PORT}.`);
-      console.log(
-        `Authentication Endpoints: /api/signup, /api/login, /api/logout`
-      );
-      // ... (other console logs) ...
-    });
-  }) // End of .then()
-  .catch((err) => {
-    console.error(
-      "MongoDB Atlas connection failed. Rendering deployment failed:",
-      err.message
-    );
-    // If the DB connection fails, the process must exit cleanly for Render to detect the failure.
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`Express server running on port ${PORT}.`);
+  console.log(`Authentication Endpoints: /api/signup, /api/login, /api/logout`);
+  console.log(`Task Endpoints (Protected): /api/tasks`);
+  console.log(
+    `Profile Endpoints (Protected): /api/profile, /api/profile/password, /api/stats`
+  );
+});
